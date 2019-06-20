@@ -1,0 +1,128 @@
+---
+title: "Reproduceable Research Week 2 Assignment"
+author: "Anas Mubashir"
+date: "June 19, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data
+
+### The variables included in this dataset are:
+
+* steps: Number of steps taking in a 5-minute interval (missing values are coded as NA)
+
+* date: The date on which the measurement was taken in YYYY-MM-DD format
+
+* interval: Identifier for the 5-minute interval in which measurement was taken
+
+The dataset is stored in a comma-separated-value (CSV) file and there are a total of 17,568 observations in this dataset.
+
+# Loading and preprocessing the data
+
+### Loading the Data and processing it if necessary
+
+```{r}
+activity_data <- read.csv("activity.csv")
+summary(activity_data)
+head(activity_data)
+```
+
+```{r}
+steps_by_date <- aggregate(activity_data$steps, by = list(Date = activity_data$date), FUN = sum)
+names(steps_by_date)[names(steps_by_date) == "x"] <- "Steps"
+temp_d <- as.Date(steps_by_date$Date, "%Y-%m-%d")
+steps_by_date$Date <- format(temp_d, format = "%m-%d")
+head(steps_by_date)
+```
+
+# What is mean total number of steps taken per day?
+
+### Make a histogram of the total number of steps taken each day
+
+```{r}
+hist(steps_by_date$Steps, xlab = "Number of Steps Per Day", ylab = "Days", main = "Total Number of Steps taken per Day", col = "aquamarine")
+```
+### Calculate and report the mean and median total number of steps taken per day
+```{r}
+mean(na.omit(steps_by_date$Steps))
+median(na.omit(steps_by_date$Steps))
+```
+
+# What is the average daily activity pattern?
+### Average Daily Activity Pattern
+```{r}
+library(ggplot2)
+steps_by_interval <- aggregate(steps ~ interval, data = activity_data, FUN =mean)
+TimeSeries1 <- ggplot(data = steps_by_interval, aes(x = interval, y = steps)) + 
+  geom_line() +
+  xlab("Time Intervals") + 
+  ylab("Total Number of Steps") +
+  ggtitle("Average Number of Steps Taken per 5-Minute Interval")
+print(TimeSeries1)
+```
+
+### The 5-minute interval that, on average, contains the maximum number of steps
+```{r}
+steps_by_interval[which(steps_by_interval$steps == max(steps_by_interval$steps)),]
+```
+
+# Imputing missing values
+Note that there are a number of days/intervals where there are missing values (coded as NA). The presence of missing days may introduce bias into some calculations or summaries of the data.
+### Calculate and report the total number of missing values in the dataset
+```{r}
+missingVals <- sum(is.na(activity_data))
+```
+
+### Filling NAs with mean value.
+```{r}
+library(dplyr)
+replace_with_mean <- function(num) replace(num, is.na(num), mean(num, na.rm = TRUE))
+temp_data <- (activity_data %>% group_by(interval) %>% mutate(steps = replace_with_mean(steps)))
+head(temp_data)
+sum(is.na(temp_data))
+```
+
+### New dataset with the missing data filled in.
+```{r}
+new_activity_data <- as.data.frame(temp_data)
+head(new_activity_data)
+summary(new_activity_data)
+```
+
+### Making Histogram with new data set.
+```{r}
+new_steps_by_date <- aggregate(new_activity_data$steps, by = list(Date = new_activity_data$date), FUN = sum)
+names(new_steps_by_date)[names(new_steps_by_date) == "x"] <- "Steps"
+temp_d <- as.Date(new_steps_by_date$Date, "%Y-%m-%d")
+new_steps_by_date$Date <- format(temp_d, format = "%m-%d")
+head(new_steps_by_date)
+hist(new_steps_by_date$Steps, xlab = "Number of Steps Per Day", ylab = "Days", main = "Total Number of Steps taken per Day", col = "red")
+```
+
+### Comparing mean median of both dataset.
+```{r}
+median(na.omit(steps_by_date$Steps))
+median(na.omit(new_steps_by_date$Steps))
+mean(na.omit(steps_by_date$Steps))
+mean(na.omit(new_steps_by_date$Steps))
+```
+
+# Are there differences in activity patterns between weekdays and weekends?
+### Create a new factor variable in the dataset.
+```{r}
+new_activity_data$WeekendOrWeekday <- ifelse(weekdays(as.Date(new_activity_data$date)) %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"), "Weekday", "Weekend")
+head(new_activity_data)
+```
+
+### Creating a panel plot
+```{r}
+new_activity_data <- (new_activity_data %>% group_by(interval, WeekendOrWeekday) %>% summarise(Mean = mean(steps)))
+ggplot(new_activity_data, mapping = aes(x = interval, y = Mean)) + geom_line() +
+  facet_grid(WeekendOrWeekday ~.) + xlab("Interval") + ylab("Mean of Steps") +
+  ggtitle("Comparison of Average Number of Steps in Each Interval")
+```
+
